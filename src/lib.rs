@@ -1,4 +1,4 @@
-use std::{io::{self, Write}, process::Output};
+use std::io::{self, Write};
 
 mod readcmd;
 
@@ -12,9 +12,17 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>>{
             if let Some(err) = cmd.err {
                 eprintln!("minirshell: {}", err);
             } else {
-                let output = std::process::Command::new(&cmd.seq[0][0])
+                let output_res = std::process::Command::new(&cmd.seq[0][0])
                     .args(&cmd.seq[0][1..])
-                    .output()?;
+                    .output();
+                let output;
+                match output_res {
+                    Ok(output_ok) => output = output_ok,
+                    Err(e) => {
+                        eprintln!("minishell: {}", e);
+                        continue;
+                    }
+                }
                 if output.status.success() {
                     println!("{}", String::from_utf8_lossy(&output.stdout));
                 } else {
