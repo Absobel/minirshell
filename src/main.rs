@@ -1,3 +1,7 @@
+use minirshell::run;
+
 fn main() {
-    println!("Hello, world!");
+    if let Err(e) = run() {
+        eprintln!("minishell: {}", e);
+    }
 }
