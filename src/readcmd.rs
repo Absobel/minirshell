@@ -1,73 +1,79 @@
-use std::io;
+use core::ffi::{c_char, CStr};
+
+#[repr(C)]
+#[derive(Debug)]
+struct CmdLine {
+    err: *mut c_char,
+    fin: *mut c_char,
+    fout: *mut c_char,
+    bg: *mut c_char,
+    seq: *mut *mut *mut c_char,
+}
+
+extern "C" {
+    fn readcmd() -> *mut CmdLine;
+}
 
 #[derive(Debug)]
 pub struct Commande {
-    pub err: Option<String>,      // Erreur de syntaxe
-    pub fin: Option<String>,      // Fichier de redirection d'entrée
-    pub fout: Option<String>,     // Fichier de redirection de sortie
-    pub bg: bool,               // Tâche en arrière plan
-    pub seq: Vec<Vec<String>>,  // Séquence de commandes éventuellement séparées par |
+    err: Option<String>,
+    fin: Option<String>,
+    fout: Option<String>,
+    bg: Option<String>,
+    seq: Option<Vec<Vec<String>>>,
 }
 
-pub fn input() -> Result<Option<Commande>, Box<dyn std::error::Error>> {
+fn cstr_to_some_string(c_str: *mut c_char) -> Option<String> {
+    if c_str.is_null() {
+        return None;
+    }
+    let c_str: &CStr = unsafe { CStr::from_ptr(c_str) };
+    Some(c_str.to_str().expect("Should be valid UTF-8").to_string())
+}
+
+pub fn rs_readcmd() -> Option<Commande> {
+    let cmd = unsafe { readcmd() };
+
     let mut command = Commande {
         err: None,
         fin: None,
         fout: None,
-        bg: false,
-        seq: vec![vec![]],
+        bg: None,
+        seq: None,
     };
-    
-    let mut line = String::new();
-    if io::stdin().read_line(&mut line)? == 0 {
-        return Ok(None);
-    }
-    let args: Vec<String> = line.split_whitespace().map(String::from).collect();
-    if args.is_empty() {
-        return Ok(Some(command));
+
+    if cmd.is_null() {
+        return None;
     }
 
-    let mut iter = args.iter().enumerate();
-        
-    while let Some((i, arg)) = iter.next() {
-        match arg.as_str() {
-            ">" => {
-                if i + 1 >= args.len() {
-                    command.err = Some("Missing output file".into());
-                    return Ok(Some(command));
-                } else if command.fout.is_some() {
-                    command.err = Some("Multiple output redirects".into());
-                    return Ok(Some(command));
-                }
-                command.fout = Some(args[i + 1].clone());
-                // Remove the processed output file from args
-                iter.next();
+    let cmd: &CmdLine = unsafe { &*cmd };
+
+    command.err = cstr_to_some_string(cmd.err);
+    command.fin = cstr_to_some_string(cmd.fin);
+    command.fout = cstr_to_some_string(cmd.fout);
+    command.bg = cstr_to_some_string(cmd.bg);
+
+    let seq = cmd.seq;
+    if !seq.is_null() {
+        let mut seq_vec = Vec::new();
+
+        let mut i = 0;
+        // while cmd.seq[i] != NULL
+        while unsafe { !(*cmd.seq.offset(i)).is_null() } {
+            let cmd_i = unsafe { *cmd.seq.offset(i) };
+            let mut cmd_vec = Vec::new();
+            let mut j = 0;
+            // while cmd.seq[i][j] != NULL
+            while unsafe { !(*cmd_i.offset(j)).is_null() } {
+                let arg_j = unsafe { *cmd_i.offset(j) };
+                cmd_vec.push(cstr_to_some_string(arg_j).unwrap()); // would return None if argj was null which it can't because of the while condition
+                j += 1;
             }
-            "<" => {
-                if i + 1 >= args.len() {
-                    command.err = Some("Missing input file".into());
-                    return Ok(Some(command));
-                } else if command.fin.is_some() {
-                    command.err = Some("Multiple input redirects".into());
-                    return Ok(Some(command));
-                }
-                command.fin = Some(args[i + 1].clone());
-                iter.next(); // Remove the processed input file from args
-            }
-            "|" => {
-                if i + 1 >= args.len() {
-                    command.err = Some("Missing command".into());
-                    return Ok(Some(command));
-                }
-                command.seq.push(vec![]);
-            }
-            _ => {
-                command.seq.last_mut().ok_or("No last command")?.push(arg.clone());
-            }
+            seq_vec.push(cmd_vec);
+            i += 1;
         }
+        command.seq = Some(seq_vec);
     }
 
-    command.bg = args.last().expect("Should have at least one argument") == "&";
-
-    Ok(Some(command))
+    Some(command)
 }

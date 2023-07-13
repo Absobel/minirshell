@@ -1,7 +1,5 @@
-use minirshell::run;
+use minirshell::readcmd;
 
 fn main() {
-    if let Err(e) = run() {
-        eprintln!("minishell: {}", e);
-    }
+    let _cmd = readcmd::rs_readcmd();
 }
