@@ -1,6 +1,12 @@
+/!\ WIP /!\
+
+# Lancement
+
 Pour lancer main : `cargo run`
 
 Pour lancer le test du parseur de commande : `cargo run --example test_readcmd`
+
+# Random trucs à dire
 
 Le dossier archive contient la version réécrite en rust de readcmd.c, je sais pas si elle marche cependant.
 
