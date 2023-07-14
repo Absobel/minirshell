@@ -33,34 +33,28 @@ fn cstr_to_some_string(c_str: *mut c_char) -> Option<String> {
 
 pub fn rs_readcmd() -> Option<Commande> {
     let cmd = unsafe { readcmd() };
-
-    let mut command = Commande {
-        err: None,
-        fin: None,
-        fout: None,
-        bg: None,
-        seq: None,
-    };
-
     if cmd.is_null() {
         return None;
     }
 
-    let cmd: &CmdLine = unsafe { &*cmd };
+    let cmd_ref: &CmdLine = unsafe { &*cmd };
 
-    command.err = cstr_to_some_string(cmd.err);
-    command.fin = cstr_to_some_string(cmd.fin);
-    command.fout = cstr_to_some_string(cmd.fout);
-    command.bg = cstr_to_some_string(cmd.bg);
+    let mut command = Commande {
+        err: cstr_to_some_string(cmd_ref.err),
+        fin: cstr_to_some_string(cmd_ref.fin),
+        fout: cstr_to_some_string(cmd_ref.fout),
+        bg: cstr_to_some_string(cmd_ref.bg),
+        seq: None,
+    };
 
-    let seq = cmd.seq;
+    let seq = cmd_ref.seq;
     if !seq.is_null() {
         let mut seq_vec = Vec::new();
 
         let mut i = 0;
         // while cmd.seq[i] != NULL
-        while unsafe { !(*cmd.seq.offset(i)).is_null() } {
-            let cmd_i = unsafe { *cmd.seq.offset(i) };
+        while unsafe { !(*cmd_ref.seq.offset(i)).is_null() } {
+            let cmd_i = unsafe { *cmd_ref.seq.offset(i) };
             let mut cmd_vec = Vec::new();
             let mut j = 0;
             // while cmd.seq[i][j] != NULL
